@@ -39,38 +39,44 @@ const commands = [];
 const commandsPath = join(__dirname, 'commands');
 const commandFiles = readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
-console.log(`Found ${commandFiles.length} command files`);
-
 for (const file of commandFiles) {
   const filePath = join(commandsPath, file);
   try {
     const { default: command } = await import(`file://${filePath}`);
     if (command.data) {
       commands.push(command.data.toJSON());
-      console.log(`✅ ${file} carregado`);
+      console.log(`  ✅ ${file}`);
     }
   } catch (error) {
-    console.error(`❌ Erro ao carregar ${file}:`, error);
+    console.error(`  ❌ Erro em ${file}:`, error.message);
   }
 }
 
-console.log(`\n📋 Total de comandos: ${commands.length}`);
+console.log(`\n📋 Total de comandos carregados: ${commands.length}\n`);
 
-// Cria cliente REST com token
+// Cria cliente REST PASSANDO O TOKEN NO CONSTRUTOR
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   try {
-    console.log(`\n🚀 Registrando comandos no guild ${guildId}...`);
+    console.log(`🚀 Registrando ${commands.length} comando(s) no servidor ${guildId}...`);
 
-    const data = await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: commands,
-    });
+    const data = await rest.put(
+      Routes.applicationGuildCommands(clientId, guildId),
+      { body: commands }
+    );
 
-    console.log(`\n✅ Sucesso! ${data.length} comando(s) registrado(s)!`);
+    console.log(`✅ Sucesso! ${data.length} comando(s) registrado(s)!\n`);
+    data.forEach((cmd) => console.log(`  • /${cmd.name}`));
   } catch (error) {
     console.error('\n❌ Erro ao registrar comandos:');
-    console.error(error);
+    if (error.status === 401) {
+      console.error('Token inválido ou expirado!');
+    } else if (error.status === 403) {
+      console.error('Permissão negada. Verifique as permissões do bot.');
+    } else {
+      console.error(error.message);
+    }
     process.exit(1);
   }
 })();
