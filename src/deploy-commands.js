@@ -11,20 +11,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Valida variáveis de ambiente
-if (!process.env.DISCORD_TOKEN) {
+const token = process.env.DISCORD_TOKEN;
+const clientId = process.env.CLIENT_ID;
+const guildId = process.env.GUILD_ID;
+
+if (!token) {
   console.error('❌ Erro: DISCORD_TOKEN não definido no .env');
   process.exit(1);
 }
 
-if (!process.env.CLIENT_ID) {
+if (!clientId) {
   console.error('❌ Erro: CLIENT_ID não definido no .env');
   process.exit(1);
 }
 
-if (!process.env.GUILD_ID) {
+if (!guildId) {
   console.error('❌ Erro: GUILD_ID não definido no .env');
   process.exit(1);
 }
+
+console.log('✅ Variáveis de ambiente carregadas');
+console.log('📝 Carregando comandos...');
 
 const commands = [];
 
@@ -32,29 +39,38 @@ const commands = [];
 const commandsPath = join(__dirname, 'commands');
 const commandFiles = readdirSync(commandsPath).filter((file) => file.endsWith('.js'));
 
+console.log(`Found ${commandFiles.length} command files`);
+
 for (const file of commandFiles) {
   const filePath = join(commandsPath, file);
-  const { default: command } = await import(`file://${filePath}`);
-  if (command.data) {
-    commands.push(command.data.toJSON());
+  try {
+    const { default: command } = await import(`file://${filePath}`);
+    if (command.data) {
+      commands.push(command.data.toJSON());
+      console.log(`✅ ${file} carregado`);
+    }
+  } catch (error) {
+    console.error(`❌ Erro ao carregar ${file}:`, error);
   }
 }
 
+console.log(`\n📋 Total de comandos: ${commands.length}`);
+
 // Cria cliente REST com token
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   try {
-    console.log(`📝 Registrando ${commands.length} comandos...`);
+    console.log(`\n🚀 Registrando comandos no guild ${guildId}...`);
 
-    const data = await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
-      { body: commands }
-    );
+    const data = await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
+      body: commands,
+    });
 
-    console.log(`✅ ${data.length} comandos registrados com sucesso!`);
+    console.log(`\n✅ Sucesso! ${data.length} comando(s) registrado(s)!`);
   } catch (error) {
-    console.error('❌ Erro ao registrar comandos:', error);
+    console.error('\n❌ Erro ao registrar comandos:');
+    console.error(error);
     process.exit(1);
   }
 })();
