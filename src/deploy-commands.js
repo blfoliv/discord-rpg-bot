@@ -1,37 +1,46 @@
 import { REST, Routes } from 'discord.js';
-import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
-
-// Carrega variáveis de ambiente
-config();
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Valida variáveis de ambiente
-const token = process.env.DISCORD_TOKEN?.trim();
-const clientId = process.env.CLIENT_ID?.trim();
-const guildId = process.env.GUILD_ID?.trim();
+// Carrega .env manualmente se existir
+if (fs.existsSync(join(__dirname, '..', '.env'))) {
+  const envContent = fs.readFileSync(join(__dirname, '..', '.env'), 'utf-8');
+  envContent.split('\n').forEach((line) => {
+    const [key, value] = line.split('=');
+    if (key && value && !process.env[key]) {
+      process.env[key] = value.trim();
+    }
+  });
+}
+
+// Obtém variáveis de ambiente
+const token = (process.env.DISCORD_TOKEN || '').trim();
+const clientId = (process.env.CLIENT_ID || '').trim();
+const guildId = (process.env.GUILD_ID || '').trim();
 
 console.log('🔍 Debug:');
-console.log(`  Token: ${token ? '✅ Presente' : '❌ Ausente'}`);
+console.log(`  Token: ${token ? '✅ Presente (' + token.length + ' caracteres)' : '❌ Ausente'}`);
 console.log(`  ClientID: ${clientId || '❌ Ausente'}`);
 console.log(`  GuildID: ${guildId || '❌ Ausente'}\n`);
 
 if (!token) {
-  console.error('❌ Erro: DISCORD_TOKEN não definido no .env');
+  console.error('❌ Erro: DISCORD_TOKEN não definido!');
+  console.error('Use: DISCORD_TOKEN="seu_token" CLIENT_ID="id" GUILD_ID="id" npm run deploy');
   process.exit(1);
 }
 
 if (!clientId) {
-  console.error('❌ Erro: CLIENT_ID não definido no .env');
+  console.error('❌ Erro: CLIENT_ID não definido!');
   process.exit(1);
 }
 
 if (!guildId) {
-  console.error('❌ Erro: GUILD_ID não definido no .env');
+  console.error('❌ Erro: GUILD_ID não definido!');
   process.exit(1);
 }
 
@@ -59,14 +68,8 @@ for (const file of commandFiles) {
 
 console.log(`\n📋 Total de comandos carregados: ${commands.length}\n`);
 
-// Cria cliente REST com o token DIRETO NO CONSTRUTOR
-const rest = new REST({ 
-  version: '10',
-  authPrefix: 'Bot'
-});
-
-// Define o token após criação
-rest.setToken(token);
+// Cria cliente REST
+const rest = new REST({ version: '10' });
 
 console.log('🚀 Iniciando registro de comandos...\n');
 
@@ -76,7 +79,12 @@ console.log('🚀 Iniciando registro de comandos...\n');
 
     const data = await rest.put(
       Routes.applicationGuildCommands(clientId, guildId),
-      { body: commands }
+      { 
+        body: commands,
+        headers: {
+          'Authorization': `Bot ${token}`
+        }
+      }
     );
 
     console.log(`\n✅ Sucesso! ${data.length} comando(s) registrado(s)!\n`);
